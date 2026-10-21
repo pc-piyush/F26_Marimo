@@ -1716,7 +1716,7 @@ def _(mo):
 @app.cell
 def _(mo):
     gh_path = mo.ui.text(
-        value="OWNER/REPO/blob/main/sql-basics-marimo.py",
+        value="https://github.com/pc-piyush/F26_Marimo/PC/sql-basics-marimo.py",
         label="GitHub path (owner/repo/blob/branch/path.py)",
         full_width=True,
     )
