@@ -12,7 +12,7 @@
 import marimo
 
 __generated_with = "0.23.16"
-app = marimo.App(width="medium", app_title="Marimo 101: SQL on OMOP")
+app = marimo.App(width="medium", app_title="Marimo 101", css_file="omop-marimo.css")
 
 
 @app.cell(hide_code=True)
@@ -32,17 +32,19 @@ def _():
 def _(mo):
     mo.md(r"""
     # Marimo 101
-    ### A reactive walkthrough of SQL queries, as a native marimo notebook
+    ### Reactive Python notebooks, with SQL on OMOP as the example
 
-    This is one of three versions of the same lesson, all built on the same OMOP data and the same queries:
+    This notebook follows the slides in `sql-basics.qmd` one feature at a time. The difference is that here you can **edit every cell**.
+    The SQL is just the example data; the subject is marimo.
 
     | Version | File | How it runs |
     |---|---|---|
     | **Quarto deck** | `sql-basics.qmd` | reveal.js slides; marimo cells run as *islands* in the browser |
-    | **Jupyter notebook** | `sql-basics-jupyter.ipynb` | an IPython kernel, with ipywidgets callbacks; you re-run cells by hand |
-    | **marimo notebook** *(this one)* | `sql-basics-marimo.py` | a reactive Python file you can open locally, on molab, or in the browser (WASM) |
+    | **marimo notebook** *(this one)* | `sql-basics-marimo.py` | a reactive Python file: locally, on molab, or in the browser (WASM) |
+    | **Jupyter notebook** | `sql-basics-jupyter.ipynb` | an IPython kernel with ipywidgets; you re-run cells by hand |
 
-    Look for the 🟢 **Native only** notes. They mark features that the slides can't show or that Jupyter needs extra code to match.
+    **How to use it:** read a section, then change something: a widget, a number in a cell, a whole query. Watch what reruns.
+    Look for the 🟢 **Native only** notes. They mark things the slides can't show.
     """)
     return
 
@@ -53,7 +55,7 @@ def _(mo, sys):
     _wasm = sys.platform == "emscripten"
     if _wasm:
         _where, _kind = (
-            "**in your browser via Pyodide (WebAssembly)**: a molab WASM preview, marimo.app, "
+            "**in your browser via Pyodide (WebAssembly)**: a molab WASM preview, GitHub Pages, "
             "`marimo export html-wasm`, or a Quarto island. No server is involved.",
             "info",
         )
@@ -87,18 +89,20 @@ def _(mo, sys):
 
 @app.cell(hide_code=True)
 def _(mo):
-    _order = [("FROM", "#002657"), ("JOIN … ON", "#6A2A60"), ("WHERE", "#C63A0E"),
-              ("GROUP BY", "#22884C"), ("HAVING", "#7A5C00"), ("SELECT", "#0021A5"),
-              ("ORDER BY", "#D32737"), ("LIMIT", "#5F6168")]
-    _chips = "".join(
-        f'<div style="background:{c};color:#fff;font:600 13px \'JetBrains Mono\',ui-monospace,monospace;'
-        f'padding:4px 8px;border-radius:4px;margin:3px 0">{i}&nbsp;&nbsp;{k}</div>'
-        for i, (k, c) in enumerate(_order, 1)
-    )
+    _toolkit = [
+        ("Reactivity", "change a cell → dependents rerun"),
+        ("SQL", "mo.sql(f\"…\", engine=con)"),
+        ("Widgets", "mo.ui.* → .value"),
+        ("Layout", "hstack · vstack · tabs · stat"),
+        ("Charts", "mo.ui.altair_chart(…).value"),
+        ("Tables", "mo.ui.table(…).value"),
+        ("Forms", ".batch(…).form()"),
+        ("Control", "mo.stop · run_button"),
+        ("Files", "mo.download"),
+    ]
     mo.sidebar([
         mo.md("### Marimo 101"),
-        mo.md("**SQL evaluation order**"),
-        mo.Html(_chips),
+        mo.md("\n".join(f"- **{k}**  \n  <small>`{v}`</small>" for k, v in _toolkit)),
         mo.md("<small>🟢 `mo.sidebar` is native-only. In the Quarto deck, the slide layout takes its place.</small>"),
     ])
     return
@@ -107,14 +111,116 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Learning SQL with OMOP
+    ---
+    # Part 1 · The basics
 
-    Every OMOP extract uses **the same tables and column names**, so a query written here can run against any OMOP dataset at any institution.
+    ## What is marimo?
 
-    - Clinical facts live in *event tables*
-    - Their meaning lives in **`concept`**, the vocabulary table
+    A **reactive** Python notebook:
 
-    Most of the queries we'll see **(1)** filter an event table, **(2)** join to `person`, and **(3)** join to `concept` to get readable names.
+    - Change a cell, and every cell that depends on it **reruns automatically**
+    - Notebooks are stored as plain **`.py` files**
+    - Built-in **UI elements**, **SQL cells** and **interactive charts**
+    - The same file runs as a **notebook**, an **app**, a **script** or **slides**
+    - Runs locally, on **molab**, or in the browser through **WebAssembly**
+
+    Here are your first two reactive cells. Move the slider, then try editing the second cell (say, change `** 2` to `** 3`).
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    x = mo.ui.slider(1, 10, value=3, label="x", show_value=True)
+    x
+    return (x,)
+
+
+@app.cell
+def _(mo, x):
+    mo.md(f"**{x.value}** squared is **{x.value ** 2}**")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    > 💡 **In marimo:** the second cell reads `x.value`, so moving the slider reruns it. There are no callbacks and no *Run* button.
+
+    ## How reactivity works
+
+    marimo reads each cell to find the **names it defines** and the **names it reads**, and builds a dependency graph:
+
+    - A cell reruns when anything it reads changes
+    - Each global name is defined in **one** cell (try defining `x` again in a new cell)
+    - Delete a cell → its variables are deleted too
+    - `_name` variables are private to their cell
+    - Cells run in **dependency order**, not page order
+
+    🟢 **Native only:** open the **dependency explorer** (the graph icon in the left sidebar) to see this notebook's real graph.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.mermaid(
+        """
+    flowchart LR
+        data["<b>data cell</b><br/>con, run()"]
+        ui["<b>UI cell</b><br/>yob = mo.ui.range_slider()"]
+        sql["<b>SQL cell</b><br/>where_df = mo.sql(…)"]
+        chain["<b>SQL cell</b><br/>… FROM where_df"]
+        data --> sql
+        ui --> sql
+        sql --> chain
+        style ui fill:#FA4616,color:#fff,stroke:#FA4616
+        style sql fill:#0021A5,color:#fff,stroke:#0021A5
+        style chain fill:#0021A5,color:#fff,stroke:#0021A5
+    """
+    )
+    return
+
+
+@app.cell
+def _(mo, run):
+    # run() is defined further down the page. marimo runs that cell first anyway.
+    mo.md(f"The database has **{run('SELECT COUNT(*) AS n FROM person').n[0]:,}** people")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## A notebook is a Python file
+
+    Open `sql-basics-marimo.py` in a text editor. Each cell is a **function**: its arguments are the names it reads, and its `return` is what it defines.
+
+    ```python
+    @app.cell
+    def _(mo, x):
+        mo.md(f"**{x.value}** squared is **{x.value ** 2}**")
+        return
+    ```
+
+    - marimo writes this for you; you just edit cells
+    - **Git diffs are clean**: there are no outputs or execution counts in the file
+    - `python sql-basics-marimo.py` runs it as a script; you can also `import` it or test it with `pytest`
+    - The `# /// script` header at the top lists the packages, so `marimo edit --sandbox` builds the environment for you
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## The running example: OMOP
+
+    To show marimo off, we need real-looking data. We'll use a synthetic **OMOP CDM** extract in **DuckDB**.
+
+    - Every OMOP site uses the same tables and columns
+    - Clinical facts live in *event tables*; their names live in **`concept`**
+    - Concept IDs are real (SNOMED, RxNorm, LOINC); people, dates and values are simulated
     """)
     return
 
@@ -128,7 +234,6 @@ def _(mo):
         PERSON ||--o{ CONDITION_OCCURRENCE : has
         PERSON ||--o{ DRUG_EXPOSURE : has
         PERSON ||--o{ MEASUREMENT : has
-        VISIT_OCCURRENCE ||--o{ CONDITION_OCCURRENCE : "recorded during"
         CONCEPT ||--o{ CONDITION_OCCURRENCE : "condition_concept_id"
         CONCEPT ||--o{ DRUG_EXPOSURE : "drug_concept_id"
         CONCEPT ||--o{ MEASUREMENT : "measurement_concept_id"
@@ -155,13 +260,10 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## The dataset
+    > 💡 **In marimo:** one cell (below, code hidden) builds `con`, `run()` and the colour palette. Every query in the notebook depends on it.
+    > If `omop.duckdb` sits next to this file it is opened read-only; otherwise (on molab, GitHub Pages or in WASM) the same seeded tables are rebuilt in memory.
 
-    - A synthetic OMOP CDM subset in **DuckDB**. If `omop.duckdb` sits next to this file, the notebook opens it; otherwise (on molab or in WASM) the next cell rebuilds the same seeded tables in memory
-    - Concept IDs are real standard concepts (SNOMED, RxNorm, LOINC)
-    - People, dates and values are simulated
-
-    🟢 **Native only:** `con` is a global DuckDB connection, so marimo lists its tables and columns in the **Data sources** panel (left sidebar). Click a table to generate a SQL cell for it.
+    🟢 **Native only:** `con` is a global DuckDB connection, so marimo lists its tables and columns in the **Data sources** panel. Click a table there to generate a SQL cell for it.
     """)
     return
 
@@ -357,7 +459,7 @@ def _(CLAUSE, DB_PATH, alt, mo, run, styled):
     mo.vstack([
         mo.md(f"<small>Source: `{DB_PATH.name}`</small>" if DB_PATH.exists()
               else "<small>Source: rebuilt in memory (seed 42)</small>"),
-        styled(_bars + _labels, w=520, h=220),
+        styled(_bars + _labels, w=520, h=200),
     ])
     return
 
@@ -365,73 +467,18 @@ def _(CLAUSE, DB_PATH, alt, mo, run, styled):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## SQL query syntax
+    ## SQL cells: `mo.sql`
 
-    You write clauses in one order. The database evaluates them in another, which explains most beginner errors.
-    The sidebar keeps the evaluation order in view while you scroll.
-    """)
-    return
+    SQL is a first-class cell type in marimo:
 
+    - Write plain SQL; marimo runs it on the engine you choose (here, the DuckDB connection `con`)
+    - The result is a **DataFrame** stored in a Python variable (`person_preview` below)
+    - `{python_expressions}` inside the query make it **reactive**
+    - Without an engine, SQL can query **Python DataFrames** by name
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.Html("""
-    <svg viewBox="0 0 1180 430" width="100%" role="img" aria-label="Written clause order versus logical evaluation order">
-      <style>
-        .lab { font: 700 20px 'JetBrains Mono', monospace; fill: #fff; }
-        .hd  { font: 700 22px Georgia, serif; fill: #1A1A1A; }
-        .note{ font: 17px Georgia, serif; fill: #5F6168; }
-        .ln  { stroke: #9A9C9B; stroke-width: 2; fill: none; }
-      </style>
-      <text class="hd" x="40" y="30">How you write it</text>
-      <text class="hd" x="640" y="30">How the database runs it</text>
-      <g>
-        <rect x="40"  y="50"  width="260" height="40" rx="5" fill="#0021A5"/><text class="lab" x="56" y="77">SELECT</text>
-        <rect x="40"  y="97"  width="260" height="40" rx="5" fill="#002657"/><text class="lab" x="56" y="124">FROM</text>
-        <rect x="40"  y="144" width="260" height="40" rx="5" fill="#6A2A60"/><text class="lab" x="56" y="171">JOIN … ON</text>
-        <rect x="40"  y="191" width="260" height="40" rx="5" fill="#C63A0E"/><text class="lab" x="56" y="218">WHERE</text>
-        <rect x="40"  y="238" width="260" height="40" rx="5" fill="#22884C"/><text class="lab" x="56" y="265">GROUP BY</text>
-        <rect x="40"  y="285" width="260" height="40" rx="5" fill="#7A5C00"/><text class="lab" x="56" y="312">HAVING</text>
-        <rect x="40"  y="332" width="260" height="40" rx="5" fill="#D32737"/><text class="lab" x="56" y="359">ORDER BY</text>
-        <rect x="40"  y="379" width="260" height="40" rx="5" fill="#5F6168"/><text class="lab" x="56" y="406">LIMIT</text>
-      </g>
-      <g>
-        <rect x="640" y="50"  width="260" height="40" rx="5" fill="#002657"/><text class="lab" x="656" y="77">1  FROM</text>
-        <rect x="640" y="97"  width="260" height="40" rx="5" fill="#6A2A60"/><text class="lab" x="656" y="124">2  JOIN … ON</text>
-        <rect x="640" y="144" width="260" height="40" rx="5" fill="#C63A0E"/><text class="lab" x="656" y="171">3  WHERE</text>
-        <rect x="640" y="191" width="260" height="40" rx="5" fill="#22884C"/><text class="lab" x="656" y="218">4  GROUP BY</text>
-        <rect x="640" y="238" width="260" height="40" rx="5" fill="#7A5C00"/><text class="lab" x="656" y="265">5  HAVING</text>
-        <rect x="640" y="285" width="260" height="40" rx="5" fill="#0021A5"/><text class="lab" x="656" y="312">6  SELECT</text>
-        <rect x="640" y="332" width="260" height="40" rx="5" fill="#D32737"/><text class="lab" x="656" y="359">7  ORDER BY</text>
-        <rect x="640" y="379" width="260" height="40" rx="5" fill="#5F6168"/><text class="lab" x="656" y="406">8  LIMIT</text>
-      </g>
-      <path class="ln" d="M300,70 C470,70 470,305 640,305"/>
-      <path class="ln" d="M300,117 C470,117 470,70 640,70"/>
-      <path class="ln" d="M300,164 C470,164 470,117 640,117"/>
-      <path class="ln" d="M300,211 C470,211 470,164 640,164"/>
-      <path class="ln" d="M300,258 C470,258 470,211 640,211"/>
-      <path class="ln" d="M300,305 C470,305 470,258 640,258"/>
-      <path class="ln" d="M300,352 L640,352"/>
-      <path class="ln" d="M300,399 L640,399"/>
-      <text class="note" x="920" y="310">Aliases are born here,</text>
-      <text class="note" x="920" y="332">so WHERE can’t see them</text>
-    </svg>
-    """)
-    return
+    🟢 **Native only:** the next cell opens in a SQL editor with an engine dropdown. In the deck it is a read-only block.
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## SELECT and FROM
-
-    - `FROM` names the table
-    - `SELECT` picks the columns you want back
-    - `LIMIT` keeps the preview small while you explore
-    - Avoid `SELECT *` in real extracts since OMOP tables are wide, and naming columns documents intent
-
-    🟢 **Native only:** the next cell is a real **SQL cell**. In the deck it is a read-only ` ```{sql .marimo} ` block; in Jupyter it is a Python string passed to `con.execute()`.
-    Here you can edit it, choose its engine from the dropdown, and its result is stored in the Python variable **`person_preview`**.
+    <small>SQL: **FROM** names the table, **SELECT** picks columns, `LIMIT` keeps the preview small.</small>
     """)
     return
 
@@ -452,11 +499,11 @@ def _(con, mo):
     return (person_preview,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo, person_preview):
     mo.md(f"""
     The SQL cell above returned a **{len(person_preview)}-row** `{type(person_preview).__module__.split('.')[0]}` DataFrame.
-    Change its `LIMIT` and this sentence reruns by itself. SQL cells and Python cells share one reactive graph.
+    Change its `LIMIT` and this sentence reruns by itself.
     """)
     return
 
@@ -464,12 +511,12 @@ def _(mo, person_preview):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## WHERE filters rows
+    ## UI elements and `.value`
 
-    Move the controls. The SQL cell interpolates their values with `{...}`, like an f-string, and reruns on its own.
+    Assign a `mo.ui` element to a global, display it, and read `.value` in another cell. That cell now reruns whenever the widget changes.
+    Here the widgets feed straight into a **SQL cell** through `{yob.value[0]}` and friends.
 
-    - `BETWEEN` is inclusive on both ends
-    - Filtering on `gender_concept_id`, not a text label, is the OMOP way
+    <small>SQL: **WHERE** keeps matching rows; `BETWEEN` is inclusive on both ends.</small>
     """)
     return
 
@@ -502,7 +549,7 @@ def _(con, mo, sex_pick, yob):
 def _(mo):
     mo.md(r"""
     🟢 **Native only: SQL over a Python DataFrame.** The next SQL cell has no engine. It queries **`where_df`**, the *result of the previous SQL cell*, as if it were a table.
-    You can chain steps like CTEs and still inspect each one.
+    Move the slider above and both cells rerun, in order.
     """)
     return
 
@@ -524,9 +571,12 @@ def _(mo, where_df):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## ORDER BY and LIMIT
+    ## A tour of UI elements
 
-    Without `ORDER BY`, row order is not guaranteed, so `LIMIT` alone returns an arbitrary sample.
+    Every element has a `.value`, and its type depends on the element. The table on the left shows them live.
+    Other elements include `text`, `text_area`, `checkbox`, `multiselect`, `date`, `file`, `button`, `code_editor` and `chat`.
+
+    <small>SQL: **ORDER BY** sorts; without it, `LIMIT` returns an arbitrary sample.</small>
     """)
     return
 
@@ -537,87 +587,229 @@ def _(mo):
                               value="year_of_birth", label="Sort by")
     sort_dir = mo.ui.radio(["ASC", "DESC"], value="DESC", label="Direction", inline=True)
     top_n = mo.ui.number(1, 25, value=8, label="LIMIT")
-    mo.hstack([sort_col, sort_dir, top_n], justify="start", gap=2)
-    return sort_col, sort_dir, top_n
+    show_month = mo.ui.switch(value=True, label="Show month")
+    mo.hstack([sort_col, sort_dir, top_n, show_month], justify="start", gap=2, align="center")
+    return show_month, sort_col, sort_dir, top_n
 
 
 @app.cell
-def _(mo, run, show_sql, sort_col, sort_dir, top_n):
+def _(mo, run, show_month, show_sql, sort_col, sort_dir, top_n):
+    _cols = "person_id, year_of_birth" + (", month_of_birth" if show_month.value else "")
     order_sql = f"""
-    SELECT person_id, year_of_birth, month_of_birth
+    SELECT {_cols}
     FROM person
     ORDER BY {sort_col.value} {sort_dir.value}
     LIMIT {top_n.value}
     """
-    mo.hstack([show_sql(order_sql), mo.ui.table(run(order_sql), page_size=8, selection=None)],
-              widths=[1, 1], gap=2)
+    _values = mo.md(
+        "| element | `.value` | type |\n|---|---|---|\n"
+        + "\n".join(f"| `{n}` | `{v!r}` | `{type(v).__name__}` |" for n, v in [
+            ("sort_col", sort_col.value), ("sort_dir", sort_dir.value),
+            ("top_n", top_n.value), ("show_month", show_month.value)]))
+    mo.hstack([
+        mo.vstack([_values, show_sql(order_sql)]),
+        mo.ui.table(run(order_sql), page_size=8, selection=None),
+    ], widths=[1, 1], gap=1.5)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## JOIN turns IDs into meaning
+    ## Layout: stacks, tabs and stats
 
-    - Event tables store integers
-    - `concept` holds the names
-    """)
-    return
+    `mo.hstack`, `mo.vstack`, `mo.ui.tabs`, `mo.accordion`, `mo.callout`, `mo.stat` and `mo.sidebar` arrange any outputs, including other widgets.
+    The sidebar on the left of this notebook is one of them.
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.Html("""
-    <svg viewBox="0 0 520 250" width="100%" style="max-width:520px" role="img" aria-label="Joining condition_occurrence to concept on concept_id">
-      <style>
-        .t { font: 15px 'JetBrains Mono', monospace; fill: #1A1A1A; }
-        .th { font: 700 15px 'JetBrains Mono', monospace; fill: #fff; }
-      </style>
-      <rect x="0" y="10" width="220" height="30" fill="#002657"/><text class="th" x="10" y="31">condition_occurrence</text>
-      <rect x="0" y="40" width="220" height="150" fill="#fff" stroke="#C7C9C8"/>
-      <text class="t" x="10" y="68">person_id  12</text>
-      <text class="t" x="10" y="98">condition_</text>
-      <text class="t" x="10" y="116">concept_id</text>
-      <rect x="120" y="96" width="92" height="26" rx="4" fill="#F3E9F1" stroke="#6A2A60"/>
-      <text class="t" x="128" y="115">201826</text>
-      <text class="t" x="10" y="158">start 2019-03-04</text>
-      <rect x="300" y="10" width="220" height="30" fill="#002657"/><text class="th" x="310" y="31">concept</text>
-      <rect x="300" y="40" width="220" height="150" fill="#fff" stroke="#C7C9C8"/>
-      <rect x="306" y="52" width="92" height="26" rx="4" fill="#F3E9F1" stroke="#6A2A60"/>
-      <text class="t" x="314" y="71">201826</text>
-      <text class="t" x="310" y="108">Type 2 diabetes</text>
-      <text class="t" x="310" y="128">mellitus</text>
-      <text class="t" x="310" y="164">SNOMED · Condition</text>
-      <path d="M212,109 C260,109 250,65 306,65" stroke="#6A2A60" stroke-width="3" fill="none"/>
-      <text class="t" x="0" y="232" style="fill:#6A2A60">ON co.condition_concept_id = c.concept_id</text>
-    </svg>
+    <small>SQL: **GROUP BY** collapses rows; `COUNT(*)` counts records, `COUNT(DISTINCT person_id)` counts patients.</small>
     """)
     return
 
 
 @app.cell
-def _(con, mo):
-    _df = mo.sql(
-        f"""
-        SELECT c.concept_name AS condition,
-               COUNT(*)       AS n_records
-        FROM condition_occurrence AS co
-        JOIN concept AS c
-          ON co.condition_concept_id = c.concept_id
-        GROUP BY c.concept_name
-        ORDER BY n_records DESC
-        LIMIT 5
-        """,
-        engine=con
+def _(mo):
+    domain_pick = mo.ui.radio(
+        {"Conditions": ("condition_occurrence", "condition_concept_id"),
+         "Drugs": ("drug_exposure", "drug_concept_id"),
+         "Visits": ("visit_occurrence", "visit_concept_id")},
+        value="Conditions", label="Event table", inline=True)
+    count_what = mo.ui.radio(["COUNT(*)", "COUNT(DISTINCT e.person_id)"],
+                             value="COUNT(DISTINCT e.person_id)", label="Count", inline=True)
+    mo.hstack([domain_pick, count_what], justify="start", gap=3)
+    return count_what, domain_pick
+
+
+@app.cell
+def _(CLAUSE, alt, count_what, domain_pick, mo, run, show_sql, styled):
+    _tbl, _col = domain_pick.value
+    group_sql = f"""
+    SELECT c.concept_name, {count_what.value} AS n
+    FROM {_tbl} AS e
+    JOIN concept AS c ON e.{_col} = c.concept_id
+    GROUP BY c.concept_name
+    ORDER BY n DESC
+    """
+    _g = run(group_sql)
+    _chart = alt.Chart(_g).mark_bar(color=CLAUSE["group"], cornerRadiusEnd=3).encode(
+        x=alt.X("n:Q", title="patients" if "DISTINCT" in count_what.value else "records"),
+        y=alt.Y("concept_name:N", sort="-x", title=None),
+        tooltip=["concept_name", alt.Tooltip("n:Q", format=",")],
     )
+    mo.vstack([
+        mo.hstack([
+            mo.stat(f"{len(_g)}", label="groups"),
+            mo.stat(f"{int(_g.n.sum()):,}", label="total"),
+            mo.stat(_g.concept_name.iloc[0] if len(_g) else "–", label="largest group"),
+        ], justify="start", gap=1.5),
+        mo.ui.tabs({
+            "Chart": styled(_chart, w=560, h=min(26 * len(_g), 230)),
+            "SQL": show_sql(group_sql),
+            "Table": mo.ui.table(_g, selection=None, page_size=6),
+        }),
+    ])
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    🟢 **Native only: tables are inputs as well as outputs.** The deck sets `selection=None` on every table because a slide has no room for a drill-down.
-    Here, **click a condition** and the next cell joins `condition_occurrence` → `drug_exposure` → `concept` for those patients.
+    ---
+    # Part 2 · Interaction
+
+    ## UI that depends on UI
+
+    The cutoff slider is created *from* `lab_pick.value`, so choosing a new lab rebuilds it with a new range and default.
+    In Jupyter this takes `observe` callbacks; here it's just another cell.
+
+    <small>SQL: `CASE WHEN` derives a column row by row, which is how most lab-based phenotype flags are built.</small>
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    lab_pick = mo.ui.dropdown(
+        {"HbA1c (%)": (3004410, 4.0, 13.0, 6.5),
+         "Creatinine (mg/dL)": (3016723, 0.3, 4.0, 1.3),
+         "Systolic BP (mmHg)": (3004249, 80.0, 190.0, 140.0)},
+        value="HbA1c (%)", label="Lab")
+    return (lab_pick,)
+
+
+@app.cell
+def _(lab_pick, mo):
+    _cid, _lo, _hi, _default = lab_pick.value
+    cutoff = mo.ui.slider(_lo, _hi, value=_default, step=0.1 if _hi < 20 else 1,
+                          label="Abnormal if ≥", show_value=True, full_width=True)
+    mo.hstack([lab_pick, cutoff], widths=[1, 2], gap=2, align="end")
+    return (cutoff,)
+
+
+@app.cell
+def _(CLAUSE, alt, cutoff, lab_pick, mo, pd, run, show_sql, styled):
+    _cid = lab_pick.value[0]
+    lab_sql = f"""
+    SELECT value_as_number,
+           CASE WHEN value_as_number >= {cutoff.value}
+                THEN 'abnormal' ELSE 'normal' END AS flag
+    FROM measurement
+    WHERE measurement_concept_id = {_cid}
+      AND value_as_number IS NOT NULL
+    """
+    _m = run(lab_sql)
+    _pct = (_m.flag == "abnormal").mean() * 100 if len(_m) else 0
+    _h = alt.Chart(_m).mark_bar().encode(
+        x=alt.X("value_as_number:Q", bin=alt.Bin(maxbins=40), title=None),
+        y=alt.Y("count():Q", title="results"),
+        color=alt.Color("flag:N", scale=alt.Scale(domain=["abnormal", "normal"],
+                                                   range=[CLAUSE["order"], "#B3BCE3"]),
+                        legend=alt.Legend(orient="top", title=None)),
+    )
+    _rule = alt.Chart(pd.DataFrame({"x": [cutoff.value]})).mark_rule(
+        color=CLAUSE["ink"], strokeDash=[5, 4], strokeWidth=2).encode(x="x:Q")
+    mo.hstack([
+        mo.vstack([show_sql(lab_sql),
+                   mo.stat(f"{_pct:.1f}%", label=f"of {len(_m):,} results flagged abnormal")]),
+        styled(_h + _rule, w=380, h=200),
+    ], widths=[1, 1], gap=2)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Interactive charts
+
+    Wrap an Altair chart in `mo.ui.altair_chart` and its **selection comes back to Python** as `age_chart.value`, a DataFrame of the selected rows.
+    **Click a bar** (shift-click for several) to filter the table.
+    """)
+    return
+
+
+@app.cell
+def _(CLAUSE, alt, mo, run, styled):
+    _bands = run("""
+    SELECT CASE
+             WHEN 2024 - year_of_birth < 40 THEN '18–39'
+             WHEN 2024 - year_of_birth < 65 THEN '40–64'
+             ELSE '65+'
+           END AS age_band,
+           COUNT(*) AS people
+    FROM person
+    GROUP BY 1
+    ORDER BY 1
+    """)
+    age_chart = mo.ui.altair_chart(
+        styled(alt.Chart(_bands).mark_bar(color=CLAUSE["select"]).encode(
+            x=alt.X("age_band:N", title=None, axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("people:Q", title="people"),
+        ), w=360, h=240),
+        chart_selection="point",
+    )
+    return (age_chart,)
+
+
+@app.cell
+def _(age_chart, mo, run, show_sql):
+    _sel = age_chart.value
+    _picked = sorted(_sel["age_band"].unique()) if len(_sel) else ["18–39", "40–64", "65+"]
+    _in = ", ".join(f"'{b}'" for b in _picked)
+    band_sql = f"""
+    WITH banded AS (
+      SELECT person_id,
+             CASE WHEN 2024 - year_of_birth < 40 THEN '18–39'
+                  WHEN 2024 - year_of_birth < 65 THEN '40–64'
+                  ELSE '65+' END AS age_band
+      FROM person
+    )
+    SELECT c.concept_name AS condition,
+           COUNT(DISTINCT b.person_id) AS patients
+    FROM banded AS b
+    JOIN condition_occurrence AS co ON b.person_id = co.person_id
+    JOIN concept AS c ON co.condition_concept_id = c.concept_id
+    WHERE b.age_band IN ({_in})
+    GROUP BY 1
+    ORDER BY 2 DESC
+    LIMIT 5
+    """
+    mo.hstack([
+        age_chart,
+        mo.vstack([mo.md(f"`age_chart.value` → **{', '.join(_picked)}**"),
+                   mo.ui.table(run(band_sql), selection=None, page_size=5),
+                   mo.accordion({"Show the SQL": show_sql(band_sql)})]),
+    ], widths=[1, 1], gap=2)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Interactive tables
+
+    `mo.ui.table(df, selection="single")` makes rows clickable; `.value` is the selected row(s) as a DataFrame.
+    **Click a condition** and the next cell shows which drugs those patients receive.
+
+    <small>SQL: **JOIN** links `condition_occurrence` → `drug_exposure` → `concept` on `person_id` and `*_concept_id`.</small>
     """)
     return
 
@@ -627,23 +819,22 @@ def _(mo, run):
     _cond_counts = run("""
     SELECT c.concept_id,
            c.concept_name               AS condition,
-           COUNT(DISTINCT co.person_id) AS patients,
-           COUNT(*)                     AS n_records
+           COUNT(DISTINCT co.person_id) AS patients
     FROM condition_occurrence AS co
-    JOIN concept AS c
-      ON co.condition_concept_id = c.concept_id
+    JOIN concept AS c ON co.condition_concept_id = c.concept_id
     GROUP BY 1, 2
     ORDER BY patients DESC
     """)
-    cond_table = mo.ui.table(_cond_counts, selection="single", initial_selection=[0],
-                             page_size=9, label="Click a condition")
+    cond_table = mo.ui.table(_cond_counts, selection="single", page_size=9,
+                             label="Click a condition")
     cond_table
     return (cond_table,)
 
 
 @app.cell
 def _(CLAUSE, alt, cond_table, mo, run, show_sql, styled):
-    mo.stop(len(cond_table.value) == 0, mo.md("*Select a condition above.*"))
+    mo.stop(len(cond_table.value) == 0,
+            mo.callout(mo.md("👆 Select a condition to see which drugs those patients receive"), kind="info"))
     _cid = int(cond_table.value["concept_id"].iloc[0])
     _name = cond_table.value["condition"].iloc[0]
     drill_sql = f"""
@@ -661,9 +852,9 @@ def _(CLAUSE, alt, cond_table, mo, run, show_sql, styled):
         x=alt.X("patients:Q"), y=alt.Y("drug:N", sort="-x", title=None),
         tooltip=["drug", "patients"])
     mo.vstack([
-        mo.md(f"#### Drugs recorded for patients with **{_name}**"),
+        mo.md(f"#### Drugs for patients with **{_name}**"),
         mo.hstack([show_sql(drill_sql),
-                   styled(_chart, w=320, h=max(24 * len(_dr), 60)) if len(_dr) else mo.md("_No drug exposures._")],
+                   styled(_chart, w=320, h=max(26 * len(_dr), 60)) if len(_dr) else mo.md("_No drug exposures recorded._")],
                   widths=[1, 1], gap=2),
     ])
     return
@@ -672,7 +863,10 @@ def _(CLAUSE, alt, cond_table, mo, run, show_sql, styled):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## INNER, LEFT and ANTI JOINS
+    ## Rich outputs: any HTML is reactive
+
+    The diagram below is an SVG string built in Python and shown with `mo.Html`. It redraws whenever `join_kind` changes,
+    and so do the query and the stats next to it.
     """)
     return
 
@@ -751,57 +945,454 @@ def _(join_kind, join_toy, mo, run, show_sql):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## GROUP BY does aggregation
+    ## Forms: batch inputs, run once
 
-    - `COUNT(*)` counts records
-    - `COUNT(DISTINCT person_id)` counts patients
+    `.batch()` bundles several widgets into one value (a `dict`). `.form()` holds that value back until you submit,
+    and `mo.stop()` halts the next cell until there is something to show. Try `%disease`, `_etformin` or `%blood%`.
 
-    In EHR data these differ a lot. 🟢 `mo.ui.tabs` keeps the chart, SQL and raw result together without crowding the page.
+    <small>SQL: `LIKE` matches text with `%` (any run of characters) and `_` (exactly one); `ILIKE` ignores case.</small>
     """)
     return
 
 
 @app.cell
 def _(mo):
-    domain_pick = mo.ui.radio(
-        {"Conditions": ("condition_occurrence", "condition_concept_id"),
-         "Drugs": ("drug_exposure", "drug_concept_id"),
-         "Visits": ("visit_occurrence", "visit_concept_id")},
-        value="Conditions", label="Event table", inline=True)
-    count_what = mo.ui.radio(["COUNT(*)", "COUNT(DISTINCT e.person_id)"],
-                             value="COUNT(DISTINCT e.person_id)", label="Count", inline=True)
-    mo.hstack([domain_pick, count_what], justify="start", gap=3)
-    return count_what, domain_pick
+    search = mo.md("""
+    {pattern}
+
+    {ci}
+
+    {domains}
+    """).batch(
+        pattern=mo.ui.text(value="%chronic%", label="Pattern"),
+        ci=mo.ui.switch(value=True, label="Case-insensitive"),
+        domains=mo.ui.multiselect(
+            ["Condition", "Drug", "Measurement", "Visit"],
+            value=["Condition", "Drug", "Measurement"],
+            label="Domains"),
+    ).form(submit_button_label="Search")
+    search
+    return (search,)
 
 
 @app.cell
-def _(CLAUSE, alt, count_what, domain_pick, mo, run, show_sql, styled):
-    _tbl, _col = domain_pick.value
-    group_sql = f"""
-    SELECT c.concept_name, {count_what.value} AS n
-    FROM {_tbl} AS e
-    JOIN concept AS c ON e.{_col} = c.concept_id
-    GROUP BY c.concept_name
-    ORDER BY n DESC
+def _(mo, run, search, show_sql):
+    mo.stop(search.value is None,
+            mo.callout(mo.md("Fill in the form and press **Search**. Nothing runs until you submit."), kind="info"))
+    _v = search.value
+    _doms = ", ".join(f"'{d}'" for d in _v["domains"]) or "NULL"
+    like_sql = f"""
+    SELECT concept_id, concept_name, domain_id, vocabulary_id
+    FROM concept
+    WHERE concept_name {'ILIKE' if _v['ci'] else 'LIKE'} '{_v['pattern'].replace("'", "''")}'
+      AND domain_id IN ({_doms})
+    ORDER BY domain_id, concept_name
     """
-    _g = run(group_sql)
-    _chart = alt.Chart(_g).mark_bar(color=CLAUSE["group"], cornerRadiusEnd=3).encode(
-        x=alt.X("n:Q", title="patients" if "DISTINCT" in count_what.value else "records"),
-        y=alt.Y("concept_name:N", sort="-x", title=None),
-        tooltip=["concept_name", alt.Tooltip("n:Q", format=",")],
-    )
-    mo.ui.tabs({
-        "Chart": styled(_chart, w=520, h=min(28 * len(_g), 260)),
-        "SQL": show_sql(group_sql),
-        "Result": mo.ui.table(_g, selection=None),
-    })
+    mo.vstack([
+        mo.md(f"`search.value = {_v}`"),
+        show_sql(like_sql),
+        mo.ui.table(run(like_sql), page_size=5, selection=None),
+    ])
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## HAVING filters
+    ## Putting it together: a small cohort app
+
+    *Of patients with type 2 diabetes, how many started metformin within N days of diagnosis?*
+    One slider, one query, three kinds of output. Switch to **app view** (`marimo run`, or the toggle at the bottom right) and this section is a dashboard.
+
+    <small>SQL: each `WITH` block (a CTE) is a named step, read top to bottom.</small>
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    window_days = mo.ui.slider(0, 240, value=90, step=15,
+                               label="Window (days)", show_value=True, full_width=True)
+    window_days
+    return (window_days,)
+
+
+@app.cell
+def _(CLAUSE, alt, mo, run, show_sql, styled, window_days):
+    cohort_sql = f"""
+    WITH t2dm AS (          -- index date = first T2DM diagnosis
+      SELECT person_id, MIN(condition_start_date) AS index_date
+      FROM condition_occurrence
+      WHERE condition_concept_id = 201826
+      GROUP BY person_id
+    ),
+    metformin AS (          -- first metformin exposure
+      SELECT person_id, MIN(drug_exposure_start_date) AS first_rx
+      FROM drug_exposure
+      WHERE drug_concept_id = 1503297
+      GROUP BY person_id
+    )
+    SELECT COUNT(*)                                  AS t2dm_patients,
+           COUNT(m.person_id)                        AS any_metformin,
+           COUNT(CASE WHEN date_diff('day', t.index_date, m.first_rx)
+                           BETWEEN 0 AND {window_days.value}
+                      THEN 1 END)                    AS within_window
+    FROM t2dm AS t
+    LEFT JOIN metformin AS m ON t.person_id = m.person_id
+    """
+    _res = run(cohort_sql)
+    _c = _res.melt(var_name="step", value_name="patients")
+    _c["label"] = ["T2DM", "Any metformin", f"Metformin ≤ {window_days.value} d"]
+    _f = alt.Chart(_c).mark_bar(color=CLAUSE["join"], cornerRadiusEnd=3).encode(
+        y=alt.Y("label:N", sort=None, title=None),
+        x=alt.X("patients:Q", title="patients"),
+    )
+    _t = _f.mark_text(align="left", dx=4, color=CLAUSE["ink"]).encode(text="patients:Q")
+    _n, _w = int(_res.t2dm_patients[0]), int(_res.within_window[0])
+    mo.vstack([
+        mo.hstack([
+            mo.stat(f"{_n:,}", label="T2DM patients"),
+            mo.stat(f"{_w:,}", label=f"metformin ≤ {window_days.value} d"),
+            mo.stat(f"{100 * _w / _n:.0f}%" if _n else "–", label="share"),
+        ], justify="start", gap=1.5),
+        styled(_f + _t, w=560, h=100),
+        mo.accordion({"Show the SQL": show_sql(cohort_sql)}),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Your turn: `run_button` and `mo.stop`
+
+    Write any query against `person`, `visit_occurrence`, `condition_occurrence`, `drug_exposure`, `measurement` or `concept`, then press **Run query**.
+    Editing the code doesn't rerun anything: `run_btn.value` is `True` only right after a click, so `mo.stop` keeps the work behind the button.
+
+    🟢 **Native only:** the simplest way to write a query here is to **add a SQL cell** with the `+ SQL` button.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    editor = mo.ui.code_editor(
+        value="""SELECT c.concept_name, ROUND(AVG(m.value_as_number), 2) AS mean_value
+    FROM measurement AS m
+    JOIN concept AS c ON m.measurement_concept_id = c.concept_id
+    GROUP BY c.concept_name""",
+        language="sql", min_height=120)
+    run_btn = mo.ui.run_button(label="Run query")
+    mo.vstack([editor, run_btn])
+    return editor, run_btn
+
+
+@app.cell
+def _(editor, mo, run, run_btn):
+    mo.stop(not run_btn.value, mo.md("*Press **Run query** to see results.*"))
+    try:
+        _out = run(editor.value)
+        _res = mo.vstack([mo.md(f"{len(_out):,} rows"), mo.ui.table(_out, page_size=6, selection=None)])
+    except Exception as _e:
+        _res = mo.callout(mo.md(f"**The query failed.** {_e}"), kind="danger")
+    _res
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Downloads: `mo.download`
+
+    `mo.download` turns any bytes into a download button. Here the file is rebuilt every time the year changes.
+
+    <small>Pipe-delimited with every field quoted survives commas inside concept names. The year leads the filename so extracts sort by period.</small>
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    export_year = mo.ui.dropdown([str(y) for y in range(2016, 2025)], value="2024",
+                                 label="Diagnosis year")
+    export_year
+    return (export_year,)
+
+
+@app.cell
+def _(export_year, mo, run):
+    import csv as _csv
+    _x = run(f"""
+    SELECT co.person_id, c.concept_name, co.condition_start_date
+    FROM condition_occurrence AS co
+    JOIN concept AS c ON co.condition_concept_id = c.concept_id
+    WHERE co.condition_concept_id = 201826
+      AND EXTRACT(year FROM co.condition_start_date) = {export_year.value}
+    ORDER BY co.condition_start_date
+    """)
+    _txt = _x.to_csv(sep="|", index=False, quoting=_csv.QUOTE_ALL)
+    _fname = f"{export_year.value}_t2dm_cohort.tsv"
+    mo.vstack([
+        mo.md(f"**{len(_x):,}** rows → `{_fname}`"),
+        mo.md("```text\n" + "\n".join(_txt.splitlines()[:5]) + "\n```"),
+        mo.download(data=_txt.encode(), filename=_fname, mimetype="text/tab-separated-values",
+                    label=f"Download {_fname}"),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ---
+    # Part 3 · Only in native marimo
+
+    ## Explore without writing code
+
+    Before you write a query, it helps to *look* at the data. marimo has two no-code tools:
+
+    - **Data explorer**: drag columns onto encodings to build charts
+    - **Dataframe transformer**: filter, group and aggregate from menus. It **writes the equivalent pandas code for you**, and its output (`transformer.value`) is an ordinary DataFrame that later cells can use
+
+    Both need room and a live session, so the deck leaves them out.
+    """)
+    return
+
+
+@app.cell
+def _(mo, run):
+    patient_summary = run("""
+    SELECT p.person_id,
+           g.concept_name                          AS sex,
+           2024 - p.year_of_birth                  AS age,
+           COALESCE(r.concept_name, 'Unknown')     AS race,
+           COUNT(DISTINCT v.visit_occurrence_id)   AS n_visits,
+           COUNT(DISTINCT co.condition_concept_id) AS n_conditions
+    FROM person AS p
+    JOIN concept AS g ON p.gender_concept_id = g.concept_id
+    LEFT JOIN concept AS r ON p.race_concept_id = r.concept_id
+    LEFT JOIN visit_occurrence AS v ON p.person_id = v.person_id
+    LEFT JOIN condition_occurrence AS co ON p.person_id = co.person_id
+    GROUP BY 1, 2, 3, 4
+    """)
+    explorer = mo.ui.data_explorer(patient_summary)
+    transformer = mo.ui.dataframe(patient_summary)
+    mo.ui.tabs({"Data explorer": explorer, "Dataframe transformer": transformer})
+    return (transformer,)
+
+
+@app.cell
+def _(mo, transformer):
+    mo.md(f"`transformer.value` currently has **{len(transformer.value):,} rows × {transformer.value.shape[1]} columns**. Add a transform in the tab above and this line updates.")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## More things to try in the editor
+
+    - **Dependency explorer** (left sidebar): see the graph from *How reactivity works*, for this notebook
+    - **App view** (bottom-right toggle): hide the code and use the notebook as a dashboard
+    - **Slides layout**: present this notebook as slides, one cell or group per slide
+    - **Delete a cell** that defines a widget: every cell that read it shows an error until you fix it, so stale state can't hide
+    - **Package manager** (left sidebar): add a package and marimo records it in the file header
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ---
+    # Part 4 · Running and sharing
+
+    ## marimo vs. Quarto vs. Jupyter
+
+    | | Jupyter (`.ipynb`) | Quarto + marimo engine (`.qmd`) | Native marimo (`.py`) |
+    |---|---|---|---|
+    | **File format** | JSON with outputs embedded | Markdown with ` ```{python .marimo} ` blocks | Plain Python: runs as a script, an app or a notebook |
+    | **Execution model** | You run cells in whatever order you like; state persists | Reactive (marimo), rendered into slides | Reactive: change a cell and its dependents rerun |
+    | **Hidden state** | Common: delete or edit a cell and old variables survive | None | None: deleting a cell deletes its variables |
+    | **Interactivity** | ipywidgets + `interact` / `observe` callbacks | `mo.ui` widgets in the browser (Pyodide) | `mo.ui` widgets, table and chart selections, forms |
+    | **SQL** | Strings in `con.execute()` (or a `%sql` extension) | ` ```{sql .marimo} `; output is display-only | SQL cells; results are DataFrames you can query again |
+    | **Git diffs** | Noisy (outputs and metadata) | Clean | Clean |
+    | **Sharing** | nbviewer, GitHub preview, Colab, Binder | Static site (GitHub Pages, Quarto Pub) | molab link, badge, WASM page, app |
+    | **Best for** | Ad-hoc exploration; the existing ecosystem | Polished lecture decks and course sites | Hands-on labs and reproducible, shareable apps |
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Put this notebook on molab
+
+    [molab](https://molab.marimo.io) is marimo's hosted notebook service. It opens any notebook on GitHub. The path below generates the links.
+    The browser-only build of this notebook is also on GitHub Pages: <https://pc-piyush.github.io/F26_Marimo/PC/docs/marimo/>
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    gh_path = mo.ui.text(
+        value="pc-piyush/F26_Marimo/blob/main/PC/sql-basics-marimo.py",
+        label="GitHub path (owner/repo/blob/branch/path.py)",
+        full_width=True,
+    )
+    gh_path
+    return (gh_path,)
+
+
+@app.cell
+def _(gh_path, mo):
+    _p = gh_path.value.strip().removeprefix("https://github.com/").strip("/")
+    _molab = f"https://molab.marimo.io/github/{_p}"
+    _wasm = f"{_molab}/wasm"
+    _embed = f"https://marimo.app/github/{_p}/wasm?embed=true"
+    _badge = f"[![Open in molab](https://marimo.io/molab-shield.svg)]({_molab})"
+    _iframe = f'<iframe src="{_embed}" width="100%" height="700" frameborder="0"></iframe>'
+    mo.vstack([
+        mo.md(_badge),
+        mo.md(f"""
+    | What | Link / snippet |
+    |---|---|
+    | **molab notebook** (static preview; *Run* starts a server) | <{_molab}> |
+    | **WASM preview** (runs in the viewer's browser, no login) | <{_wasm}> |
+    | **Badge** for a README or the Quarto site | `{_badge}` |
+    """),
+        mo.md("**Embed in a Quarto page** so the notebook sits next to the slides:"),
+        mo.md(f"```html\n{_iframe}\n```"),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Running it yourself
+
+    ```bash
+    # Editable notebook in an isolated env built from the PEP 723 header
+    uvx marimo edit --sandbox sql-basics-marimo.py
+
+    # Same file as a read-only app (code hidden, still reactive)
+    uvx marimo run --sandbox sql-basics-marimo.py
+
+    # Plain script: every cell runs once, no widgets
+    uv run sql-basics-marimo.py
+
+    # Commit outputs so molab's static preview isn't blank
+    uvx marimo export session sql-basics-marimo.py
+
+    # Static web page for GitHub Pages (add an empty .nojekyll at the Pages root)
+    uvx marimo export html-wasm sql-basics-marimo.py -o docs/marimo --mode run
+
+    # Convert the Jupyter version (or any .ipynb) to marimo
+    uvx marimo convert sql-basics-jupyter.ipynb -o converted.py
+    ```
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Recap: the marimo toolkit
+
+    | Idea | API | Section |
+    |---|---|---|
+    | Reactive cells | change a cell → its dependents rerun | What is marimo? |
+    | SQL cells | `mo.sql(f"...", engine=con)`; query DataFrames by name | SQL cells |
+    | UI elements | `mo.ui.slider`, `dropdown`, `radio`, `number`, `switch`, … → `.value` | UI elements, tour |
+    | Layout | `mo.hstack`, `vstack`, `ui.tabs`, `accordion`, `stat`, `callout`, `sidebar` | Layout |
+    | Dependent widgets | create a widget from another widget's `.value` | UI that depends on UI |
+    | Interactive charts | `mo.ui.altair_chart(..., chart_selection="point").value` | Interactive charts |
+    | Interactive tables | `mo.ui.table(df, selection="single").value` | Interactive tables |
+    | Rich output | `mo.md(f"...")`, `mo.Html(svg)`, `mo.mermaid` | Rich outputs |
+    | Forms | `mo.md("{a} {b}").batch(a=..., b=...).form()` | Forms |
+    | Controlled execution | `mo.ui.run_button()`, `mo.stop(condition, output)` | Your turn |
+    | Downloads | `mo.download(data, filename)` | Downloads |
+    | No-code exploration | `mo.ui.data_explorer`, `mo.ui.dataframe` | Part 3 |
+
+    The appendix below has the rest of the SQL lesson, built with the same tools.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ---
+    # Appendix · SQL reference
+
+    More SQL on the same data. Each section reuses the patterns above: widgets in one cell, the query and outputs in the next.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Query syntax: written order vs. evaluation order
+
+    You write clauses in one order. The database evaluates them in another, which explains most beginner errors.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.Html("""
+    <svg viewBox="0 0 1180 430" width="100%" role="img" aria-label="Written clause order versus logical evaluation order">
+      <style>
+        .lab { font: 700 20px 'JetBrains Mono', monospace; fill: #fff; }
+        .hd  { font: 700 22px Georgia, serif; fill: #1A1A1A; }
+        .note{ font: 17px Georgia, serif; fill: #5F6168; }
+        .ln  { stroke: #9A9C9B; stroke-width: 2; fill: none; }
+      </style>
+      <text class="hd" x="40" y="30">How you write it</text>
+      <text class="hd" x="640" y="30">How the database runs it</text>
+      <g>
+        <rect x="40"  y="50"  width="260" height="40" rx="5" fill="#0021A5"/><text class="lab" x="56" y="77">SELECT</text>
+        <rect x="40"  y="97"  width="260" height="40" rx="5" fill="#002657"/><text class="lab" x="56" y="124">FROM</text>
+        <rect x="40"  y="144" width="260" height="40" rx="5" fill="#6A2A60"/><text class="lab" x="56" y="171">JOIN … ON</text>
+        <rect x="40"  y="191" width="260" height="40" rx="5" fill="#C63A0E"/><text class="lab" x="56" y="218">WHERE</text>
+        <rect x="40"  y="238" width="260" height="40" rx="5" fill="#22884C"/><text class="lab" x="56" y="265">GROUP BY</text>
+        <rect x="40"  y="285" width="260" height="40" rx="5" fill="#7A5C00"/><text class="lab" x="56" y="312">HAVING</text>
+        <rect x="40"  y="332" width="260" height="40" rx="5" fill="#D32737"/><text class="lab" x="56" y="359">ORDER BY</text>
+        <rect x="40"  y="379" width="260" height="40" rx="5" fill="#5F6168"/><text class="lab" x="56" y="406">LIMIT</text>
+      </g>
+      <g>
+        <rect x="640" y="50"  width="260" height="40" rx="5" fill="#002657"/><text class="lab" x="656" y="77">1  FROM</text>
+        <rect x="640" y="97"  width="260" height="40" rx="5" fill="#6A2A60"/><text class="lab" x="656" y="124">2  JOIN … ON</text>
+        <rect x="640" y="144" width="260" height="40" rx="5" fill="#C63A0E"/><text class="lab" x="656" y="171">3  WHERE</text>
+        <rect x="640" y="191" width="260" height="40" rx="5" fill="#22884C"/><text class="lab" x="656" y="218">4  GROUP BY</text>
+        <rect x="640" y="238" width="260" height="40" rx="5" fill="#7A5C00"/><text class="lab" x="656" y="265">5  HAVING</text>
+        <rect x="640" y="285" width="260" height="40" rx="5" fill="#0021A5"/><text class="lab" x="656" y="312">6  SELECT</text>
+        <rect x="640" y="332" width="260" height="40" rx="5" fill="#D32737"/><text class="lab" x="656" y="359">7  ORDER BY</text>
+        <rect x="640" y="379" width="260" height="40" rx="5" fill="#5F6168"/><text class="lab" x="656" y="406">8  LIMIT</text>
+      </g>
+      <path class="ln" d="M300,70 C470,70 470,305 640,305"/>
+      <path class="ln" d="M300,117 C470,117 470,70 640,70"/>
+      <path class="ln" d="M300,164 C470,164 470,117 640,117"/>
+      <path class="ln" d="M300,211 C470,211 470,164 640,164"/>
+      <path class="ln" d="M300,258 C470,258 470,211 640,211"/>
+      <path class="ln" d="M300,305 C470,305 470,258 640,258"/>
+      <path class="ln" d="M300,352 L640,352"/>
+      <path class="ln" d="M300,399 L640,399"/>
+      <text class="note" x="920" y="310">Aliases are born here,</text>
+      <text class="note" x="920" y="332">so WHERE can’t see them</text>
+    </svg>
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## HAVING filters groups
 
     - `WHERE` runs before grouping, on rows
     - `HAVING` runs after grouping, on aggregates
@@ -886,231 +1477,6 @@ def _(CLAUSE, alt, grain, mo, run, show_sql, styled, visit_types):
         tooltip=["period:T", "visit_type", "n_visits"],
     )
     mo.vstack([styled(_line, w=640, h=220), mo.accordion({"Show the SQL": show_sql(dates_sql)})])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Measurements and CASE WHEN
-
-    `CASE WHEN` creates a derived column row by row, which is how most lab-based phenotype flags are built.
-    Changing the lab **rebuilds the slider** with a new range and default. One UI element can depend on another, and the reactive graph keeps them in order.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    lab_pick = mo.ui.dropdown(
-        {"HbA1c (%)": (3004410, 4.0, 13.0, 6.5),
-         "Creatinine (mg/dL)": (3016723, 0.3, 4.0, 1.3),
-         "Systolic BP (mmHg)": (3004249, 80.0, 190.0, 140.0)},
-        value="HbA1c (%)", label="Lab")
-    return (lab_pick,)
-
-
-@app.cell
-def _(lab_pick, mo):
-    _cid, _lo, _hi, _default = lab_pick.value
-    cutoff = mo.ui.slider(_lo, _hi, value=_default, step=0.1 if _hi < 20 else 1,
-                          label="Abnormal if ≥", show_value=True, full_width=True)
-    mo.hstack([lab_pick, cutoff], widths=[1, 2], gap=2, align="end")
-    return (cutoff,)
-
-
-@app.cell
-def _(CLAUSE, alt, cutoff, lab_pick, mo, pd, run, show_sql, styled):
-    _cid = lab_pick.value[0]
-    lab_sql = f"""
-    SELECT value_as_number,
-           CASE WHEN value_as_number >= {cutoff.value}
-                THEN 'abnormal' ELSE 'normal' END AS flag
-    FROM measurement
-    WHERE measurement_concept_id = {_cid}
-      AND value_as_number IS NOT NULL
-    """
-    _m = run(lab_sql)
-    _pct = (_m.flag == "abnormal").mean() * 100 if len(_m) else 0
-    _h = alt.Chart(_m).mark_bar().encode(
-        x=alt.X("value_as_number:Q", bin=alt.Bin(maxbins=40), title=None),
-        y=alt.Y("count():Q", title="results"),
-        color=alt.Color("flag:N", scale=alt.Scale(domain=["abnormal", "normal"],
-                                                   range=[CLAUSE["order"], "#B3BCE3"]),
-                        legend=alt.Legend(orient="top", title=None)),
-    )
-    _rule = alt.Chart(pd.DataFrame({"x": [cutoff.value]})).mark_rule(
-        color=CLAUSE["ink"], strokeDash=[5, 4], strokeWidth=2).encode(x="x:Q")
-    mo.hstack([
-        mo.vstack([show_sql(lab_sql),
-                   mo.stat(f"{_pct:.1f}%", label=f"of {len(_m):,} results flagged abnormal")]),
-        styled(_h + _rule, w=380, h=200),
-    ], widths=[1, 1], gap=2)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Click the chart and query the selection
-
-    Age bands come from a `CASE` expression, then `GROUP BY`. **Click a bar** (shift-click for several) to filter the table.
-    """)
-    return
-
-
-@app.cell
-def _(CLAUSE, alt, mo, run, styled):
-    _bands = run("""
-    SELECT CASE
-             WHEN 2024 - year_of_birth < 40 THEN '18–39'
-             WHEN 2024 - year_of_birth < 65 THEN '40–64'
-             ELSE '65+'
-           END AS age_band,
-           COUNT(*) AS people
-    FROM person
-    GROUP BY 1
-    ORDER BY 1
-    """)
-    age_chart = mo.ui.altair_chart(
-        styled(alt.Chart(_bands).mark_bar(color=CLAUSE["select"]).encode(
-            x=alt.X("age_band:N", title=None, axis=alt.Axis(labelAngle=0)),
-            y=alt.Y("people:Q", title="people"),
-        ), w=360, h=240),
-        chart_selection="point",
-    )
-    return (age_chart,)
-
-
-@app.cell
-def _(age_chart, mo, run, show_sql):
-    _sel = age_chart.value
-    _picked = sorted(_sel["age_band"].unique()) if len(_sel) else ["18–39", "40–64", "65+"]
-    _in = ", ".join(f"'{b}'" for b in _picked)
-    band_sql = f"""
-    WITH banded AS (
-      SELECT person_id,
-             CASE WHEN 2024 - year_of_birth < 40 THEN '18–39'
-                  WHEN 2024 - year_of_birth < 65 THEN '40–64'
-                  ELSE '65+' END AS age_band
-      FROM person
-    )
-    SELECT c.concept_name AS condition,
-           COUNT(DISTINCT b.person_id) AS patients
-    FROM banded AS b
-    JOIN condition_occurrence AS co ON b.person_id = co.person_id
-    JOIN concept AS c ON co.condition_concept_id = c.concept_id
-    WHERE b.age_band IN ({_in})
-    GROUP BY 1
-    ORDER BY 2 DESC
-    LIMIT 5
-    """
-    mo.hstack([
-        age_chart,
-        mo.vstack([mo.md(f"Showing: **{', '.join(_picked)}**"),
-                   mo.ui.table(run(band_sql), selection=None, page_size=5),
-                   mo.accordion({"Show the SQL": show_sql(band_sql)})]),
-    ], widths=[1, 1], gap=2)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## CTEs: build a cohort step by step
-
-    *Of patients with type 2 diabetes, how many started metformin within N days of diagnosis?*
-    Each `WITH` block is a named step; read them top to bottom.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    window_days = mo.ui.slider(0, 240, value=90, step=15,
-                               label="Window (days)", show_value=True, full_width=True)
-    window_days
-    return (window_days,)
-
-
-@app.cell
-def _(CLAUSE, alt, mo, run, show_sql, styled, window_days):
-    cohort_sql = f"""
-    WITH t2dm AS (          -- index date = first T2DM diagnosis
-      SELECT person_id, MIN(condition_start_date) AS index_date
-      FROM condition_occurrence
-      WHERE condition_concept_id = 201826
-      GROUP BY person_id
-    ),
-    metformin AS (          -- first metformin exposure
-      SELECT person_id, MIN(drug_exposure_start_date) AS first_rx
-      FROM drug_exposure
-      WHERE drug_concept_id = 1503297
-      GROUP BY person_id
-    )
-    SELECT COUNT(*)                                  AS t2dm_patients,
-           COUNT(m.person_id)                        AS any_metformin,
-           COUNT(CASE WHEN date_diff('day', t.index_date, m.first_rx)
-                           BETWEEN 0 AND {window_days.value}
-                      THEN 1 END)                    AS within_window
-    FROM t2dm AS t
-    LEFT JOIN metformin AS m ON t.person_id = m.person_id
-    """
-    _c = run(cohort_sql).melt(var_name="step", value_name="patients")
-    _c["label"] = ["T2DM", "Any metformin", f"Metformin ≤ {window_days.value} d"]
-    _f = alt.Chart(_c).mark_bar(color=CLAUSE["join"], cornerRadiusEnd=3).encode(
-        y=alt.Y("label:N", sort=None, title=None),
-        x=alt.X("patients:Q", title="patients"),
-    )
-    _t = _f.mark_text(align="left", dx=4, color=CLAUSE["ink"]).encode(text="patients:Q")
-    mo.vstack([styled(_f + _t, w=560, h=110), show_sql(cohort_sql)])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ---
-    # Beyond the basics
-    Pattern matching, subqueries, set operations and window functions
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## LIKE finds concepts by text
-
-    - `%` matches any run of characters; `_` matches exactly one
-    - Use `LIKE` to *find* concept IDs, then filter event tables on the IDs
-    - Text search misses synonyms and is slow on the full vocabulary
-
-    Try `%disease`, `_etformin`, `%in%`, `%blood%`. The query below is a SQL cell, so the operator itself is interpolated from the switches.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    like_pat = mo.ui.text(value="%chronic%", label="Pattern")
-    like_ci = mo.ui.switch(value=True, label="Case-insensitive (ILIKE)")
-    like_not = mo.ui.switch(value=False, label="NOT")
-    mo.hstack([like_pat, like_ci, like_not], justify="start", gap=2, align="center")
-    return like_ci, like_not, like_pat
-
-
-@app.cell
-def _(con, like_ci, like_not, like_pat, mo):
-    _df = mo.sql(
-        f"""
-        SELECT concept_id, concept_name, domain_id, vocabulary_id
-        FROM concept
-        WHERE concept_name {'NOT ' if like_not.value else ''}{'ILIKE' if like_ci.value else 'LIKE'} '{like_pat.value.replace("'", "''")}'
-        ORDER BY domain_id, concept_name
-        """,
-        engine=con
-    )
     return
 
 
@@ -1536,89 +1902,7 @@ def _(CLAUSE, alt, mo, roll_k, roll_person, run, show_sql, styled):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ---
-    ## 🟢 Native only: explore without writing SQL
-
-    Before you write a query, it helps to *look* at the data. marimo has two no-code tools:
-
-    - **Data explorer**: drag columns onto encodings to build charts
-    - **Dataframe transformer**: filter, group and aggregate from menus. It **writes the equivalent pandas code for you**, and its output (`transformer.value`) is an ordinary DataFrame that later cells can use
-
-    Both need room and a live session, so the deck leaves them out. In Jupyter the closest equivalents are separate extensions.
-    """)
-    return
-
-
-@app.cell
-def _(mo, run):
-    patient_summary = run("""
-    SELECT p.person_id,
-           g.concept_name                          AS sex,
-           2024 - p.year_of_birth                  AS age,
-           COALESCE(r.concept_name, 'Unknown')     AS race,
-           COUNT(DISTINCT v.visit_occurrence_id)   AS n_visits,
-           COUNT(DISTINCT co.condition_concept_id) AS n_conditions
-    FROM person AS p
-    JOIN concept AS g ON p.gender_concept_id = g.concept_id
-    LEFT JOIN concept AS r ON p.race_concept_id = r.concept_id
-    LEFT JOIN visit_occurrence AS v ON p.person_id = v.person_id
-    LEFT JOIN condition_occurrence AS co ON p.person_id = co.person_id
-    GROUP BY 1, 2, 3, 4
-    """)
-    explorer = mo.ui.data_explorer(patient_summary)
-    transformer = mo.ui.dataframe(patient_summary)
-    mo.ui.tabs({"Data explorer": explorer, "Dataframe transformer": transformer})
-    return (transformer,)
-
-
-@app.cell(hide_code=True)
-def _(mo, transformer):
-    mo.md(f"`transformer.value` currently has **{len(transformer.value):,} rows × {transformer.value.shape[1]} columns**. Add a transform in the tab above and this line updates.")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Exercise
-
-    Write any query against `person`, `visit_occurrence`, `condition_occurrence`, `drug_exposure`, `measurement` or `concept`.
-
-    The deck uses a `code_editor` plus a separate `run_button`. Here the editor is wrapped in **`.form()`**, so nothing runs until you press *Run query*.
-    In the native editor, the simplest option is to **add a SQL cell** with the `+ SQL` button.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    editor = mo.ui.code_editor(
-        value="""SELECT c.concept_name, ROUND(AVG(m.value_as_number), 2) AS mean_value
-    FROM measurement AS m
-    JOIN concept AS c ON m.measurement_concept_id = c.concept_id
-    GROUP BY c.concept_name""",
-        language="sql", min_height=140,
-    ).form(submit_button_label="Run query", bordered=True)
-    editor
-    return (editor,)
-
-
-@app.cell
-def _(editor, mo, run):
-    mo.stop(editor.value is None, mo.md("*Press **Run query** to see results.*"))
-    try:
-        _out = run(editor.value)
-        _res = mo.vstack([mo.md(f"{len(_out):,} rows"), mo.ui.table(_out, page_size=6, selection=None)])
-    except Exception as _e:
-        _res = mo.callout(mo.md(f"**The query failed.** {_e}"), kind="danger")
-    _res
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Same query, three ways
+    ## Same query, three dialects
 
     | Task | DuckDB (this notebook) | SQL Server | PostgreSQL |
     |---|---|---|---|
@@ -1634,170 +1918,8 @@ def _(mo):
     | Table reference | `cdm.person` | `cdm_db.dbo.person` | `cdm.person` |
 
     OHDSI’s **SqlRender** translates one parameterised query into each dialect, which is how ATLAS and HADES packages stay portable.
-    """)
-    return
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Export the result
-
-    Pipe-delimited with every field quoted survives commas inside concept names. The year leads the filename so extracts sort by period.
-    In DuckDB: `COPY (SELECT ...) TO '2024_t2dm_cohort.tsv' (HEADER, DELIMITER '|', FORCE_QUOTE *);`
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    export_year = mo.ui.dropdown([str(y) for y in range(2016, 2025)], value="2024",
-                                 label="Diagnosis year")
-    export_year
-    return (export_year,)
-
-
-@app.cell
-def _(export_year, mo, run):
-    import csv as _csv
-    _x = run(f"""
-    SELECT co.person_id, c.concept_name, co.condition_start_date
-    FROM condition_occurrence AS co
-    JOIN concept AS c ON co.condition_concept_id = c.concept_id
-    WHERE co.condition_concept_id = 201826
-      AND EXTRACT(year FROM co.condition_start_date) = {export_year.value}
-    ORDER BY co.condition_start_date
-    """)
-    _txt = _x.to_csv(sep="|", index=False, quoting=_csv.QUOTE_ALL)
-    _fname = f"{export_year.value}_t2dm_cohort.tsv"
-    mo.vstack([
-        mo.md(f"**{len(_x):,}** rows → `{_fname}`"),
-        mo.md("```text\n" + "\n".join(_txt.splitlines()[:5]) + "\n```"),
-        mo.download(data=_txt.encode(), filename=_fname, mimetype="text/tab-separated-values",
-                    label=f"Download {_fname}"),
-    ])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ---
-    ## marimo vs. Quarto vs. Jupyter
-
-    The same lesson, the same queries, three ways to run them.
-
-    | | Jupyter (`.ipynb`) | Quarto + marimo engine (`.qmd`) | Native marimo (`.py`) |
-    |---|---|---|---|
-    | **File format** | JSON with outputs embedded | Markdown with ` ```{python .marimo} ` blocks | Plain Python: runs as a script, an app or a notebook |
-    | **Execution model** | You run cells in whatever order you like; state persists | Reactive (marimo), rendered into slides | Reactive: change a cell and its dependents rerun |
-    | **Hidden state** | Common: delete or edit a cell and old variables survive | None | None: deleting a cell deletes its variables |
-    | **Interactivity** | ipywidgets + `interact` / `observe` callbacks | `mo.ui` widgets in the browser (Pyodide) | `mo.ui` widgets, table and chart selections, forms |
-    | **SQL** | Strings in `con.execute()` (or a `%sql` extension) | ` ```{sql .marimo} `; output is display-only | SQL cells; results are DataFrames you can query again |
-    | **Layout** | Linear cells | Quarto / reveal.js: columns, themes, SCSS | `hstack`, `tabs`, `sidebar`; vertical, grid or slides layout |
-    | **Git diffs** | Noisy (outputs and metadata) | Clean | Clean |
-    | **Packages** | `requirements.txt` / environment | `pyproject:` in the front matter | PEP 723 header + `--sandbox`; molab installs on import |
-    | **Sharing** | nbviewer, GitHub preview, Colab, Binder | Static site (GitHub Pages, Quarto Pub) | molab link, badge, WASM embed, `marimo export html-wasm` |
-    | **Best for** | Ad-hoc exploration; the existing ecosystem | Polished lecture decks and course sites | Hands-on labs and reproducible, shareable apps |
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Put this notebook on molab
-
-    [molab](https://molab.marimo.io) is marimo's hosted notebook service. Once this file is on GitHub, molab opens it directly. Paste the repo path below to generate the links.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    gh_path = mo.ui.text(
-        value="https://github.com/pc-piyush/F26_Marimo/PC/sql-basics-marimo.py",
-        label="GitHub path (owner/repo/blob/branch/path.py)",
-        full_width=True,
-    )
-    gh_path
-    return (gh_path,)
-
-
-@app.cell
-def _(gh_path, mo):
-    _p = gh_path.value.strip().removeprefix("https://github.com/").strip("/")
-    _molab = f"https://molab.marimo.io/github/{_p}"
-    _wasm = f"{_molab}/wasm"
-    _embed = f"https://marimo.app/github/{_p}/wasm?embed=true"
-    _badge = f"[![Open in molab](https://marimo.io/molab-shield.svg)]({_molab})"
-    _iframe = f'<iframe src="{_embed}" width="100%" height="700" frameborder="0"></iframe>'
-    mo.vstack([
-        mo.md(_badge),
-        mo.md(f"""
-    | What | Link / snippet |
-    |---|---|
-    | **molab notebook** (static preview; *Run* starts a server) | <{_molab}> |
-    | **WASM preview** (runs in the viewer's browser, no login) | <{_wasm}> |
-    | **Badge** for a README or the Quarto site | `{_badge}` |
-    """),
-        mo.md("**Embed in a Quarto page** so the notebook sits next to the slides:"),
-        mo.md(f"```html\n{_iframe}\n```"),
-    ])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Running it yourself
-
-    ```bash
-    # Editable notebook in an isolated env built from the PEP 723 header
-    uvx marimo edit --sandbox sql-basics-marimo.py
-
-    # Same file as a read-only app (code hidden, still reactive)
-    uvx marimo run --sandbox sql-basics-marimo.py
-
-    # Plain script: every cell runs once, no widgets
-    uv run sql-basics-marimo.py
-
-    # Commit outputs so molab's static preview isn't blank
-    uvx marimo export session sql-basics-marimo.py
-
-    # Self-contained WASM site (the same runtime the Quarto deck uses)
-    uvx marimo export html-wasm sql-basics-marimo.py -o site --mode run
-
-    # Convert the Jupyter version (or any .ipynb) to marimo
-    uvx marimo convert sql-basics-jupyter.ipynb -o converted.py
-    ```
-
-    In the editor, switch the app layout to **Slides** to compare marimo's own slide mode with the Quarto deck.
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Recap
-
-    | Clause | Job |
-    |---|---|
-    | **FROM** | which table (and alias) |
-    | **JOIN … ON** | link tables, usually on `person_id` or `*_concept_id` |
-    | **WHERE** | keep rows, before any grouping |
-    | **GROUP BY** | collapse rows into groups for `COUNT`, `AVG`, `MIN` |
-    | **HAVING** | keep groups, after aggregation |
-    | **SELECT** | choose and compute output columns, incl. `CASE WHEN` |
-    | **ORDER BY** | sort, then `LIMIT` to trim |
-    | **LIKE / ILIKE** | match text with `%` and `_`, to find concept IDs |
-    | **EXISTS** | keep rows that have (or lack) a related row, without duplicating them |
-    | **UNION · INTERSECT · EXCEPT** | combine two result sets that have the same columns |
-    | **COALESCE · NULLIF · FILTER** | replace `NULL`s, prevent division by zero, count a subset per group |
-    | **OVER · ROW_NUMBER · LAG/LEAD · ROWS BETWEEN** | per-group aggregates that keep every row, first events, gaps, running values |
-
-    Built with [DuckDB](https://duckdb.org/), [Quarto](https://quarto.org/) and [marimo](https://marimo.io/gallery).
+    Built with [marimo](https://marimo.io/gallery), [DuckDB](https://duckdb.org/) and [Quarto](https://quarto.org/).
     """)
     return
 
