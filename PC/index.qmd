@@ -72,13 +72,13 @@ footer: "[Marimo 101](https://github.com/GatorAIM/gms6803-clinical-data-science)
 
 **Research interests:** statistical machine learning in clinical informatics, including clinical decision support, patient representation learning, phenotyping, privacy-preserving learning, and **data democratization**
 
-::: muted
+<!-- ::: muted
 UF Superior Accomplishment Award: university-level Gold Award (2025)
-:::
+::: -->
 :::
 :::::
 
-## My work: getting clinical data to researchers
+<!-- ## My work: getting clinical data to researchers
 
 ::::: columns
 ::: {.column width="48%"}
@@ -117,7 +117,7 @@ flowchart TD
 **Data democratization:** the same data, in the same shape, usable by more people, with less waiting
 :::
 :::
-:::::
+::::: --> 
 
 ## Teaching: from data access to data skills
 
