@@ -48,111 +48,6 @@ header: |
 footer: "[Marimo 101](https://github.com/GatorAIM/gms6803-clinical-data-science)"
 ---
 
-## About me
-
-::::: columns
-::: {.column width="30%"}
-<!-- Swap in a headshot here if you prefer: photos/<your-photo>.png -->
-![](photos/Piyush.png){width="230" fig-alt="Piyush Chaudhari's pc monogram"}
-
-::: small
-[pc-piyush.github.io](https://pc-piyush.github.io) · [GitHub](https://github.com/pc-piyush)
-
-[Google Scholar](https://scholar.google.com/citations?hl=en&user=gGrOPjwAAAAJ) · [LinkedIn](https://www.linkedin.com/in/piyush-chaudhari/)
-:::
-:::
-
-::: {.column width="70%"}
-**Piyush Chaudhari**
-
-- **Data Management Analyst III**, [UF Health Integrated Data Repository](https://idr.ufhealth.org) (2023–)
-- **PhD student, Biomedical Informatics**, University of Florida (2025–)
-  - *Emerging Research Scholars* PhD Fellow
-- MS Biostatistics, University of Florida · BTech Biotechnology, VIT
-
-**Research interests:** statistical machine learning in clinical informatics, including clinical decision support, patient representation learning, phenotyping, privacy-preserving learning, and **data democratization**
-
-<!-- ::: muted
-UF Superior Accomplishment Award: university-level Gold Award (2025)
-::: -->
-:::
-:::::
-
-<!-- ## My work: getting clinical data to researchers
-
-::::: columns
-::: {.column width="48%"}
-At the **UF Health IDR**, I turn EHR data into research-ready data, safely
-
-- **ETL pipelines** that load and validate data in the **OMOP**, **PCORnet** and **i2b2** common data models
-- Curating **Epic Clarity** and **Caboodle** data for interdisciplinary research
-- **Honest broker**: giving researchers data under IRB-approved protocols
-- A patient-centric **Digital Twin** in i2b2 for cohort phenotyping
-
-```{=html}
-<div style="display:flex;gap:14px;margin-top:.6em">
-  <div style="border-left:5px solid #FA4616;padding:4px 12px"><div style="font:700 1.4em Georgia,serif;color:#0021A5">10×</div><div style="font-size:.55em;color:#5F6168">faster clinical notes<br/>and order reports</div></div>
-  <div style="border-left:5px solid #FA4616;padding:4px 12px"><div style="font:700 1.4em Georgia,serif;color:#0021A5">5×</div><div style="font-size:.55em;color:#5F6168">faster delivery<br/>through OMOP</div></div>
-  <div style="border-left:5px solid #FA4616;padding:4px 12px"><div style="font:700 1.4em Georgia,serif;color:#0021A5">5×</div><div style="font-size:.55em;color:#5F6168">faster custom<br/>de-identification</div></div>
-</div>
-```
-:::
-
-::: {.column width="52%"}
-```{mermaid}
-%%| fig-width: 6
-flowchart TD
-    ehr["<b>EHR</b><br/>Epic Clarity · Caboodle"]
-    cdm["<b>Common data models</b><br/>OMOP · PCORnet · i2b2"]
-    tools["<b>Self-service tools</b><br/>i2b2 · OHDSI ATLAS"]
-    people["<b>Researchers and learners</b><br/>clinicians · students · OneFlorida+ partners"]
-    ehr -- "ETL + validation" --> cdm
-    cdm -- "de-identification<br/>honest broker" --> tools
-    tools -- "training<br/>and teaching" --> people
-    style cdm fill:#0021A5,color:#fff,stroke:#0021A5
-    style people fill:#FA4616,color:#fff,stroke:#FA4616
-```
-
-::: muted
-**Data democratization:** the same data, in the same shape, usable by more people, with less waiting
-:::
-:::
-::::: --> 
-
-## Teaching: from data access to data skills
-
-::::: columns
-::: {.column width="50%"}
-- Helping design the syllabus for **GMS 6803: Data Science for Clinical Research** (Fall 2026), with Drs. Yi Guo and Mei Liu
-- **i2b2** and **OHDSI ATLAS** training workshops for clinicians, researchers and **OneFlorida+** partners (2023–)
-- Mentoring undergraduate research (EGN 4912, Spring 2026)
-
-::: muted
-Access is only half of democratization. People also need to be able to **ask their own questions** of the data
-:::
-:::
-
-::: {.column width="50%"}
-**What teaching material needs**
-
-| Need | How we get it |
-|------------------|------------------|
-| Same data for everyone | A common data model (**OMOP**) |
-| Safe to share | **Synthetic** patients, real concept IDs |
-| Nothing to install | Python in the **browser** (WebAssembly) |
-| Every step visible | **Reactive** notebooks |
-| Learners can change it | Editable, runnable files |
-
-::: muted
-That last row is what today is about
-:::
-:::
-:::::
-
-## Notebooks for teaching {.center .uf-section background-gradient="linear-gradient(180deg, #002657 0%, #0021A5 100%)"}
-
-One OMOP SQL lesson, built three ways: Quarto · marimo · Jupyter
-
 ## One lesson, three notebooks
 
 ::::: columns
@@ -568,7 +463,11 @@ quarto preview sql-basics.qmd
 - Python runs in the viewer's browser (**Pyodide**)
 - Viewers can't edit the code
 
-[Open the deck](sql-basics.html)
+<u>
+
+[*Open the deck*](sql-basics.html)
+
+</u>
 :::
 
 ::: {.column width="34%"}
@@ -583,7 +482,14 @@ uvx marimo edit --sandbox \
 - The same file is a notebook, an **app** (`marimo run`) or a script
 - Learners edit and rerun everything
 
-[molab](https://molab.marimo.io/github/{{< meta repo-path >}}/sql-basics-marimo.py) · [in your browser]({{< meta pages-url >}})
+<u>
+[*molab*](https://molab.marimo.io/github/{{< meta repo-path >}}/sql-basics-marimo.py)
+</u>
+
+<u>
+[*in your browser*]({{< meta pages-url >}})
+</u>
+
 :::
 
 ::: {.column width="33%"}
@@ -598,7 +504,12 @@ uv run --with jupyterlab … \
 - Widgets via **ipywidgets** callbacks
 - Huge ecosystem; Colab, Binder
 
-[Colab](https://colab.research.google.com/github/{{< meta repo-path >}}/sql-basics-jupyter.ipynb)
+<u>
+
+[*Colab*](https://colab.research.google.com/github/{{< meta repo-path >}}/sql-basics-jupyter.ipynb)
+
+</u>
+
 :::
 :::::
 
@@ -987,7 +898,7 @@ flowchart LR
 :::
 :::::
 
-## Which one, when?
+## Which one, when? {visibility="hidden"}
 
 ::::: columns
 ::: {.column width="33%"}
@@ -1019,7 +930,7 @@ flowchart LR
 For this course: **teach from the Quarto deck**, **practise in the marimo notebook**, and use the Jupyter version to see what reactivity saves you
 :::
 
-## Try it yourself
+## Try it yourself {visibility="hidden"}
 
 1. **Quarto:** open the [SQL deck](sql-basics.html) and move a few widgets
 2. **marimo:** open [`sql-basics-marimo.py` on molab](https://molab.marimo.io/github/{{< meta repo-path >}}/sql-basics-marimo.py) (or [in your browser]({{< meta pages-url >}})), then
@@ -1032,7 +943,7 @@ For this course: **teach from the Quarto deck**, **practise in the marimo notebo
 Running locally? `uvx marimo edit --sandbox sql-basics-marimo.py` builds the environment from the file header
 :::
 
-## Resources
+## Resources {.smaller}
 
 <!-- Add your resources here -->
 
@@ -1041,3 +952,11 @@ Running locally? `uvx marimo edit --sandbox sql-basics-marimo.py` builds the env
 - [Jupyter](https://jupyter.org/) · [ipywidgets](https://ipywidgets.readthedocs.io/)
 - [DuckDB](https://duckdb.org/) · [OMOP CDM](https://ohdsi.github.io/CommonDataModel/)
 - Pimentel, J. F., Murta, L., Braganholo, V., & Freire, J. (2019). *A Large-Scale Study About Quality and Reproducibility of Jupyter Notebooks.* MSR 2019
+
+### About Me
+
+- I am a PhD Student in Biomedical Informatics at University of Florida, and a Data Management Analyst with UF Health [Integrated Data Repository](https://idr.ufhealth.org)
+
+- My interests involve uncertainity quantification and propagation in biomedical data and its applications in clinical informatics and decision support systems. I am also very passionate about teaching and advancing education through democratization of data and knowledge
+
+[**Website**](https://pc-piyush.github.io/) | [**GitHub**](https://github.com/pc-piyush) | [**Bluesky**](https://bsky.app/profile/pc-piyush.github.io)
